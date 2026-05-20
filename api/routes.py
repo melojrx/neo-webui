@@ -1309,7 +1309,12 @@ def handle_get(handler, parsed) -> bool:
     if parsed.path == "/api/meetings":
         return j(handler, {"meetings": neo_meetings.load_meetings()})
 
-    if parsed.path.startswith("/api/meetings/") and not parsed.path.endswith("/start") and not parsed.path.endswith("/finish"):
+    if (
+        parsed.path.startswith("/api/meetings/")
+        and not parsed.path.endswith("/start")
+        and not parsed.path.endswith("/finish")
+        and not parsed.path.endswith("/summary")
+    ):
         meeting_id = parsed.path[len("/api/meetings/"):]
         meeting = neo_meetings.get_meeting(meeting_id)
         if meeting:

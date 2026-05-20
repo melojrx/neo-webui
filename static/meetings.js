@@ -83,7 +83,6 @@ function renderMeetingForm() {
 function addParticipantRow(data) {
   const list = document.getElementById('meetingsParticipantsList');
   if (!list) return;
-  const idx = list.children.length;
   const p = data || { name: '', email: '', whatsapp: '', role: 'guest' };
   const row = document.createElement('div');
   row.className = 'meetings-participant-row';
@@ -219,6 +218,7 @@ function renderActiveMeeting(container) {
         <iframe
           id="meetingsJitsiFrame"
           src="${_mesc(m.room_url)}"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads"
           allow="camera; microphone; display-capture; autoplay; clipboard-write"
           allowfullscreen
           style="width:100%; height:100%; border:none; border-radius:8px;"
@@ -288,8 +288,12 @@ function openPostMeeting(meetingId) {
 
 function generateMeetingSummary() {
   if (!_activeMeeting) return;
+  const participantNames = (_activeMeeting.participants || [])
+    .map(p => typeof p === 'string' ? p : p?.name)
+    .filter(Boolean)
+    .join(', ');
   const prompt = `Reunião "${_activeMeeting.title}" (projeto: ${_activeMeeting.project}, objetivo: ${_activeMeeting.objective}) acaba de terminar. ` +
-    `Participantes: ${_activeMeeting.participants.join(', ') || 'não informados'}. ` +
+    `Participantes: ${participantNames || 'não informados'}. ` +
     `Gere um resumo estruturado com: 1) Resumo objetivo, 2) Decisões tomadas, 3) Pendências e responsáveis, 4) Tarefas candidatas para Jira, 5) Próximos passos.`;
 
   if (typeof switchPanel === 'function') switchPanel('chat');
