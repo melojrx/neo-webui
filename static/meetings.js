@@ -22,13 +22,8 @@ function renderMeetingsPanel() {
   const container = document.getElementById('meetingsContent');
   if (!container) return;
 
-  if (_activeMeeting && _activeMeeting.status === 'active') {
-    renderActiveMeeting(container);
-    return;
-  }
-
-  if (_activeMeeting && _activeMeeting.status === 'finished') {
-    renderPostMeeting(container);
+  if (_activeMeeting) {
+    renderMeetingDetail(container);
     return;
   }
 
@@ -122,9 +117,9 @@ function getParticipantsFromForm() {
 function renderMeetingCard(meeting) {
   const statusKey = 'meetings_status_' + meeting.status;
   const statusLabel = t(statusKey) || meeting.status;
-  const date = new Date(meeting.created_at * 1000).toLocaleDateString();
+  const date = formatMeetingDate(meeting.created_at);
   return `
-    <div class="meetings-card meetings-card--${meeting.status}" data-meeting-id="${meeting.id}">
+    <div class="meetings-card meetings-card--${meeting.status}" data-meeting-id="${meeting.id}" onclick="openMeetingDetails('${meeting.id}')" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openMeetingDetails('${meeting.id}')}">
       <div class="meetings-card-header">
         <strong>${_mesc(meeting.title)}</strong>
         <span class="meetings-card-status badge badge--${meeting.status}">${statusLabel}</span>
@@ -132,10 +127,21 @@ function renderMeetingCard(meeting) {
       <div class="meetings-card-meta">
         <span>${_mesc(meeting.project)}</span> · <span>${date}</span>
       </div>
-      ${meeting.status === 'planned' ? `<button class="btn btn-sm" onclick="joinMeeting('${meeting.id}')">▶ ${t('meetings_generate_room')}</button>` : ''}
-      ${meeting.status === 'finished' ? `<button class="btn btn-sm" onclick="openPostMeeting('${meeting.id}')">📋 ${t('meetings_post_title')}</button>` : ''}
+      <div class="meetings-card-actions">
+        <button class="btn btn-sm" onclick="event.stopPropagation();openMeetingDetails('${meeting.id}')">${t('meetings_details')}</button>
+        ${meeting.status === 'planned' ? `<button class="btn btn-sm" onclick="event.stopPropagation();joinMeeting('${meeting.id}')">▶ ${t('meetings_generate_room')}</button>` : ''}
+      </div>
     </div>
   `;
+}
+
+function formatMeetingDate(value) {
+  if (!value) return '—';
+  try {
+    return new Date(value * 1000).toLocaleString();
+  } catch (e) {
+    return '—';
+  }
 }
 
 function _mesc(str) {
@@ -246,26 +252,137 @@ async function startAndOpen(meeting, roomWindow) {
   renderMeetingsPanel();
 }
 
-function renderActiveMeeting(container) {
+function renderMeetingDetail(container) {
   const m = _activeMeeting;
+  if (!m) return;
+  const statusKey = 'meetings_status_' + m.status;
+  const statusLabel = t(statusKey) || m.status;
+  const objectiveLabel = t('meetings_obj_' + m.objective) || m.objective;
+  const participants = m.participants || [];
+
   container.innerHTML = `
-    <div class="meetings-active">
-      <div class="meetings-active-header">
-        <h3>${_mesc(m.title)}</h3>
-        <span class="badge badge--active">${t('meetings_status_active')}</span>
+    <div class="meetings-detail">
+      <div class="meetings-detail-toolbar">
+        <button class="btn" onclick="closeMeetingView()">← ${t('tab_meetings')}</button>
+        <span class="meetings-detail-hint">${t('meetings_detail_hint')}</span>
       </div>
-      <div class="meetings-active-actions">
-        <a href="${_mesc(m.room_url)}" target="_blank" rel="noopener" class="btn-sm">${t('meetings_open_tab')}</a>
-        <button class="btn-sm btn-danger" onclick="endCurrentMeeting()">⏹ ${t('meetings_end')}</button>
+
+      <section class="meetings-detail-hero meetings-detail-hero--${m.status}">
+        <div>
+          <p class="meetings-detail-eyebrow">${t('meetings_detail_title')}</p>
+          <h3>${_mesc(m.title)}</h3>
+          <p>${_mesc(m.project)} · ${objectiveLabel}</p>
+        </div>
+        <span class="meetings-card-status badge badge--${m.status}">${statusLabel}</span>
+      </section>
+
+      <div class="meetings-detail-grid">
+        ${renderMeetingDetailMetric(t('meetings_created_at'), formatMeetingDate(m.created_at))}
+        ${renderMeetingDetailMetric(t('meetings_started_at'), formatMeetingDate(m.started_at))}
+        ${renderMeetingDetailMetric(t('meetings_finished_at'), formatMeetingDate(m.finished_at))}
+        ${renderMeetingDetailMetric(t('meetings_participants'), String(participants.length || 0))}
       </div>
+
+      ${renderParticipantsBlock(participants)}
+      ${renderMeetingStatePanel(m)}
+    </div>
+  `;
+}
+
+function renderMeetingDetailMetric(label, value) {
+  return `
+    <div class="meetings-detail-metric">
+      <span>${label}</span>
+      <strong>${_mesc(value)}</strong>
+    </div>
+  `;
+}
+
+function renderParticipantsBlock(participants) {
+  if (!participants || participants.length === 0) {
+    return `
+      <section class="meetings-detail-section">
+        <h4>${t('meetings_participants')}</h4>
+        <p class="meetings-muted">${t('meetings_no_participants')}</p>
+      </section>
+    `;
+  }
+  return `
+    <section class="meetings-detail-section">
+      <h4>${t('meetings_participants')}</h4>
+      <div class="meetings-detail-participants">
+        ${participants.map(renderParticipantChip).join('')}
+      </div>
+    </section>
+  `;
+}
+
+function renderParticipantChip(participant) {
+  const p = typeof participant === 'string'
+    ? { name: participant, email: '', whatsapp: '', role: 'guest' }
+    : participant;
+  const role = t('meetings_role_' + (p.role || 'guest')) || p.role || 'guest';
+  const contacts = [p.email, p.whatsapp].filter(Boolean).map(_mesc).join(' · ');
+  return `
+    <div class="meetings-detail-participant">
+      <strong>${_mesc(p.name)}</strong>
+      <span>${role}${contacts ? ' · ' + contacts : ''}</span>
+    </div>
+  `;
+}
+
+function renderMeetingStatePanel(m) {
+  if (m.status === 'planned') {
+    return `
+      <section class="meetings-state-panel">
+        <div>
+          <h4>${t('meetings_planned_title')}</h4>
+          <p>${t('meetings_planned_desc')}</p>
+        </div>
+        <button class="neo-btn--primary" onclick="joinMeeting('${m.id}')">▶ ${t('meetings_generate_room')}</button>
+      </section>
+    `;
+  }
+
+  if (m.status === 'active') {
+    return `
+      <section class="meetings-state-panel meetings-state-panel--active">
+        <div>
+          <h4>${t('meetings_external_title')}</h4>
+          <p>${t('meetings_external_desc')}</p>
+        </div>
+        <div class="meetings-active-actions">
+          <a href="${_mesc(m.room_url)}" target="_blank" rel="noopener" class="btn-sm">${t('meetings_open_tab')}</a>
+          <button class="btn-sm btn-danger" onclick="endCurrentMeeting()">⏹ ${t('meetings_end')}</button>
+        </div>
+      </section>
       <div class="meetings-external-room" id="meetingsExternalRoom">
         <div class="meetings-external-icon">↗</div>
         <h4>${t('meetings_external_title')}</h4>
         <p>${t('meetings_external_desc')}</p>
         <a href="${_mesc(m.room_url)}" target="_blank" rel="noopener" class="neo-btn--primary">${t('meetings_open_tab')}</a>
       </div>
-    </div>
-  `;
+    `;
+  }
+
+  if (m.status === 'finished' || m.status === 'processed') {
+    return `
+      <section class="meetings-state-panel meetings-state-panel--post">
+        <div>
+          <h4>${t('meetings_post_title')}</h4>
+          <p>${t('meetings_post_desc')}</p>
+        </div>
+        <div class="meetings-post-actions">
+          <button class="btn" onclick="generateMeetingSummary()">📝 ${t('meetings_post_summary')}</button>
+          <button class="btn" onclick="saveMeetingToObsidian()" disabled title="Phase 2">📓 ${t('meetings_post_obsidian')}</button>
+          <button class="btn" onclick="createMeetingJiraTask()" disabled title="Phase 2">🎫 ${t('meetings_post_jira')}</button>
+        </div>
+      </section>
+      <div id="meetingsSummaryOutput" class="meetings-summary-output"></div>
+    `;
+  }
+
+  return '';
 }
 
 async function endCurrentMeeting() {
@@ -286,44 +403,16 @@ async function endCurrentMeeting() {
   }
 }
 
-function renderPostMeeting(container) {
-  const m = _activeMeeting;
-  container.innerHTML = `
-    <div class="meetings-post">
-      <div class="meetings-post-header">
-        <h3>${_mesc(m.title)} — ${t('meetings_post_title')}</h3>
-        <span class="badge badge--finished">${t('meetings_status_finished')}</span>
-      </div>
-      <div class="meetings-post-info">
-        <p><strong>${t('meetings_project')}:</strong> ${_mesc(m.project)}</p>
-        <p><strong>${t('meetings_objective')}:</strong> ${t('meetings_obj_' + m.objective)}</p>
-        ${m.participants.length ? `<p><strong>${t('meetings_participants')}:</strong> ${m.participants.map(p => typeof p === 'string' ? _mesc(p) : _mesc(p.name)).join(', ')}</p>` : ''}
-      </div>
-      <div class="meetings-post-actions">
-        <button class="btn" onclick="generateMeetingSummary()">
-          📝 ${t('meetings_post_summary')}
-        </button>
-        <button class="btn" onclick="saveMeetingToObsidian()" disabled title="Phase 2">
-          📓 ${t('meetings_post_obsidian')}
-        </button>
-        <button class="btn" onclick="createMeetingJiraTask()" disabled title="Phase 2">
-          🎫 ${t('meetings_post_jira')}
-        </button>
-      </div>
-      <div id="meetingsSummaryOutput" class="meetings-summary-output"></div>
-      <div class="meetings-post-footer">
-        <button class="btn" onclick="closeMeetingView()">← ${t('tab_meetings')}</button>
-      </div>
-    </div>
-  `;
-}
-
-function openPostMeeting(meetingId) {
+function openMeetingDetails(meetingId) {
   const meeting = _meetingsData.find(m => m.id === meetingId);
   if (meeting) {
     _activeMeeting = meeting;
     renderMeetingsPanel();
   }
+}
+
+function openPostMeeting(meetingId) {
+  openMeetingDetails(meetingId);
 }
 
 function generateMeetingSummary() {

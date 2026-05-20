@@ -94,6 +94,9 @@ class TestMeetingsPanelRegistration:
         assert "tab_meetings" in i18n_js
         assert "meetings_title" in i18n_js
         assert "action_new_meeting" in i18n_js
+        assert "meetings_details" in i18n_js
+        assert "meetings_detail_title" in i18n_js
+        assert "meetings_post_desc" in i18n_js
 
     def test_dashboard_handles_new_meeting(self):
         dashboard_js = (Path(__file__).parent.parent / "static" / "dashboard.js").read_text()
@@ -102,6 +105,8 @@ class TestMeetingsPanelRegistration:
     def test_style_has_meetings_classes(self):
         style_css = (Path(__file__).parent.parent / "static" / "style.css").read_text()
         assert ".meetings-form" in style_css
+        assert ".meetings-detail" in style_css
+        assert ".meetings-state-panel" in style_css
         assert ".meetings-external-room" in style_css
         assert "showing-meetings" in style_css
 
@@ -116,3 +121,10 @@ class TestMeetingsPanelRegistration:
         assert "openMeetingRoom" in meetings_js
         assert "id=\"meetingsJitsiFrame\"" not in meetings_js
         assert "sandbox=" not in meetings_js
+
+    def test_meeting_cards_open_detail_for_every_status(self):
+        meetings_js = (Path(__file__).parent.parent / "static" / "meetings.js").read_text()
+        assert "function renderMeetingDetail" in meetings_js
+        assert "function openMeetingDetails" in meetings_js
+        assert "onclick=\"openMeetingDetails('${meeting.id}')\"" in meetings_js
+        assert "renderPostMeeting" not in meetings_js
