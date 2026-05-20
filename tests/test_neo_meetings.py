@@ -102,7 +102,7 @@ class TestMeetingsPanelRegistration:
     def test_style_has_meetings_classes(self):
         style_css = (Path(__file__).parent.parent / "static" / "style.css").read_text()
         assert ".meetings-form" in style_css
-        assert ".meetings-iframe-wrapper" in style_css
+        assert ".meetings-external-room" in style_css
         assert "showing-meetings" in style_css
 
     def test_summary_prompt_uses_participant_names_not_objects(self):
@@ -110,6 +110,9 @@ class TestMeetingsPanelRegistration:
         assert ".map(p => typeof p === 'string' ? p : p?.name)" in meetings_js
         assert "_activeMeeting.participants.join" not in meetings_js
 
-    def test_jitsi_iframe_has_sandbox(self):
+    def test_meeting_room_opens_outside_webui_not_iframe(self):
         meetings_js = (Path(__file__).parent.parent / "static" / "meetings.js").read_text()
-        assert "sandbox=\"allow-scripts allow-same-origin allow-forms allow-popups" in meetings_js
+        assert "openMeetingWindowPlaceholder" in meetings_js
+        assert "openMeetingRoom" in meetings_js
+        assert "id=\"meetingsJitsiFrame\"" not in meetings_js
+        assert "sandbox=" not in meetings_js

@@ -155,6 +155,7 @@ async function createMeetingFromForm() {
     return;
   }
 
+  const roomWindow = openMeetingWindowPlaceholder();
   try {
     const resp = await fetch('/api/meetings/create', {
       method: 'POST',
@@ -164,16 +165,19 @@ async function createMeetingFromForm() {
     const data = await resp.json();
     if (data.ok) {
       _activeMeeting = data.meeting;
-      await startAndEmbed(data.meeting);
+      await startAndOpen(data.meeting, roomWindow);
     } else {
+      closeMeetingWindowPlaceholder(roomWindow);
       if (typeof showToast === 'function') showToast(data.error || 'Error', 2500, 'error');
     }
   } catch (e) {
+    closeMeetingWindowPlaceholder(roomWindow);
     if (typeof showToast === 'function') showToast('Network error', 2500, 'error');
   }
 }
 
 async function joinMeeting(meetingId) {
+  const roomWindow = openMeetingWindowPlaceholder();
   try {
     const resp = await fetch(`/api/meetings/${meetingId}/start`, {
       method: 'POST',
@@ -183,14 +187,53 @@ async function joinMeeting(meetingId) {
     const data = await resp.json();
     if (data.ok) {
       _activeMeeting = data.meeting;
+      openMeetingRoom(data.meeting, roomWindow);
       renderMeetingsPanel();
+    } else {
+      closeMeetingWindowPlaceholder(roomWindow);
     }
   } catch (e) {
+    closeMeetingWindowPlaceholder(roomWindow);
     if (typeof showToast === 'function') showToast('Error starting meeting', 2500, 'error');
   }
 }
 
-async function startAndEmbed(meeting) {
+function openMeetingWindowPlaceholder() {
+  try {
+    const roomWindow = window.open('', '_blank');
+    if (roomWindow) {
+      roomWindow.document.title = 'Neo Meeting';
+      roomWindow.document.body.innerHTML = '<p style="font-family:system-ui;padding:24px">Abrindo reunião...</p>';
+    }
+    return roomWindow;
+  } catch (e) {
+    return null;
+  }
+}
+
+function closeMeetingWindowPlaceholder(roomWindow) {
+  try {
+    if (roomWindow && !roomWindow.closed) roomWindow.close();
+  } catch (e) { /* ignore */ }
+}
+
+function openMeetingRoom(meeting, roomWindow) {
+  if (!meeting?.room_url) return false;
+  try {
+    if (roomWindow && !roomWindow.closed) {
+      roomWindow.opener = null;
+      roomWindow.location.href = meeting.room_url;
+      roomWindow.focus();
+      return true;
+    }
+    const opened = window.open(meeting.room_url, '_blank', 'noopener,noreferrer');
+    if (opened) return true;
+  } catch (e) { /* ignore */ }
+  if (typeof showToast === 'function') showToast(t('meetings_popup_blocked'), 3500, 'warning');
+  return false;
+}
+
+async function startAndOpen(meeting, roomWindow) {
   try {
     await fetch(`/api/meetings/${meeting.id}/start`, {
       method: 'POST',
@@ -199,6 +242,7 @@ async function startAndEmbed(meeting) {
     });
     _activeMeeting.status = 'active';
   } catch (e) { /* proceed anyway */ }
+  openMeetingRoom(_activeMeeting || meeting, roomWindow);
   renderMeetingsPanel();
 }
 
@@ -214,15 +258,11 @@ function renderActiveMeeting(container) {
         <a href="${_mesc(m.room_url)}" target="_blank" rel="noopener" class="btn-sm">${t('meetings_open_tab')}</a>
         <button class="btn-sm btn-danger" onclick="endCurrentMeeting()">⏹ ${t('meetings_end')}</button>
       </div>
-      <div class="meetings-iframe-wrapper" id="meetingsIframeWrapper">
-        <iframe
-          id="meetingsJitsiFrame"
-          src="${_mesc(m.room_url)}"
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads"
-          allow="camera; microphone; display-capture; autoplay; clipboard-write"
-          allowfullscreen
-          style="width:100%; height:100%; border:none; border-radius:8px;"
-        ></iframe>
+      <div class="meetings-external-room" id="meetingsExternalRoom">
+        <div class="meetings-external-icon">↗</div>
+        <h4>${t('meetings_external_title')}</h4>
+        <p>${t('meetings_external_desc')}</p>
+        <a href="${_mesc(m.room_url)}" target="_blank" rel="noopener" class="neo-btn--primary">${t('meetings_open_tab')}</a>
       </div>
     </div>
   `;
