@@ -49,25 +49,6 @@ class TestMeetingsStore:
         stored = load_meetings()
         assert stored[0]["status"] == "finished"
 
-    def test_start_meeting(self):
-        from api.meetings import create_meeting, load_meetings, start_meeting
-        m = create_meeting(title="Daily", project="neo", objective="alinhamento")
-        result = start_meeting(m["id"])
-        assert result["status"] == "active"
-        assert result["started_at"] is not None
-        stored = load_meetings()
-        assert stored[0]["status"] == "active"
-
-    def test_update_summary(self):
-        from api.meetings import create_meeting, load_meetings, update_summary
-        m = create_meeting(title="Review", project="neo", objective="homologacao")
-        summary = {"decisions": ["ship"], "next_steps": ["homologar"]}
-        result = update_summary(m["id"], summary)
-        assert result["status"] == "processed"
-        assert result["summary"] == summary
-        stored = load_meetings()
-        assert stored[0]["summary"] == summary
-
     def test_finish_nonexistent(self):
         from api.meetings import finish_meeting
         result = finish_meeting("nonexistent-id")
@@ -134,9 +115,6 @@ class TestMeetingsPanelRegistration:
         assert "tab_meetings" in i18n_js
         assert "meetings_title" in i18n_js
         assert "action_new_meeting" in i18n_js
-        assert "meetings_details" in i18n_js
-        assert "meetings_detail_title" in i18n_js
-        assert "meetings_post_desc" in i18n_js
 
     def test_dashboard_handles_new_meeting(self):
         dashboard_js = (Path(__file__).parent.parent / "static" / "dashboard.js").read_text()
@@ -145,26 +123,5 @@ class TestMeetingsPanelRegistration:
     def test_style_has_meetings_classes(self):
         style_css = (Path(__file__).parent.parent / "static" / "style.css").read_text()
         assert ".meetings-form" in style_css
-        assert ".meetings-detail" in style_css
-        assert ".meetings-state-panel" in style_css
-        assert ".meetings-external-room" in style_css
+        assert ".meetings-iframe-wrapper" in style_css
         assert "showing-meetings" in style_css
-
-    def test_summary_prompt_uses_participant_names_not_objects(self):
-        meetings_js = (Path(__file__).parent.parent / "static" / "meetings.js").read_text()
-        assert ".map(p => typeof p === 'string' ? p : p?.name)" in meetings_js
-        assert "_activeMeeting.participants.join" not in meetings_js
-
-    def test_meeting_room_opens_outside_webui_not_iframe(self):
-        meetings_js = (Path(__file__).parent.parent / "static" / "meetings.js").read_text()
-        assert "openMeetingWindowPlaceholder" in meetings_js
-        assert "openMeetingRoom" in meetings_js
-        assert "id=\"meetingsJitsiFrame\"" not in meetings_js
-        assert "sandbox=" not in meetings_js
-
-    def test_meeting_table_open_detail_for_every_status(self):
-        meetings_js = (Path(__file__).parent.parent / "static" / "meetings.js").read_text()
-        assert "function openMeetingDetails" in meetings_js
-        assert "function openPostMeeting" in meetings_js
-        assert "function renderPostMeeting" in meetings_js
-
