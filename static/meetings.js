@@ -33,13 +33,8 @@ function renderMeetingsPanel() {
   const container = document.getElementById('meetingsContent');
   if (!container) return;
 
-  if (_activeMeeting && _activeMeeting.status === 'active') {
-    renderActiveMeeting(container);
-    return;
-  }
-
-  if (_activeMeeting && _activeMeeting.status === 'finished') {
-    renderPostMeeting(container);
+  if (_activeMeeting) {
+    renderMeetingDetail(container);
     return;
   }
 
@@ -351,6 +346,7 @@ function renderMeetingsToolbar() {
           <option value="title">Título</option>
         </select>
       </div>
+
     </div>
   `;
 
@@ -675,6 +671,15 @@ function copyMeetingLink(meetingId) {
   });
 }
 
+function formatMeetingDate(value) {
+  if (!value) return '—';
+  try {
+    return new Date(value * 1000).toLocaleString();
+  } catch (e) {
+    return '—';
+  }
+}
+
 function _mesc(str) {
   const el = document.createElement('span');
   el.textContent = str || '';
@@ -699,6 +704,8 @@ async function createMeetingFromForm() {
     return;
   }
 
+  const isPlanned = scheduled_at && scheduled_at > Date.now() / 1000;
+  const roomWindow = isPlanned ? null : openMeetingWindowPlaceholder();
   try {
     const resp = await fetch('/api/meetings/create', {
       method: 'POST',
@@ -707,22 +714,25 @@ async function createMeetingFromForm() {
     });
     const data = await resp.json();
     if (data.ok) {
-      if (scheduled_at && scheduled_at > Date.now() / 1000) {
+      if (isPlanned) {
         if (typeof showToast === 'function') showToast(t('meetings_status_planned') || 'Reunião agendada', 2500, 'success');
         loadMeetingsPanel();
       } else {
         _activeMeeting = data.meeting;
-        await startAndEmbed(data.meeting);
+        await startAndOpen(data.meeting, roomWindow);
       }
     } else {
+      if (roomWindow) closeMeetingWindowPlaceholder(roomWindow);
       if (typeof showToast === 'function') showToast(data.error || 'Error', 2500, 'error');
     }
   } catch (e) {
+    if (roomWindow) closeMeetingWindowPlaceholder(roomWindow);
     if (typeof showToast === 'function') showToast('Network error', 2500, 'error');
   }
 }
 
 async function joinMeeting(meetingId) {
+  const roomWindow = openMeetingWindowPlaceholder();
   try {
     const resp = await fetch(`/api/meetings/${meetingId}/start`, {
       method: 'POST',
@@ -732,14 +742,53 @@ async function joinMeeting(meetingId) {
     const data = await resp.json();
     if (data.ok) {
       _activeMeeting = data.meeting;
+      openMeetingRoom(data.meeting, roomWindow);
       renderMeetingsPanel();
+    } else {
+      closeMeetingWindowPlaceholder(roomWindow);
     }
   } catch (e) {
+    closeMeetingWindowPlaceholder(roomWindow);
     if (typeof showToast === 'function') showToast('Error starting meeting', 2500, 'error');
   }
 }
 
-async function startAndEmbed(meeting) {
+function openMeetingWindowPlaceholder() {
+  try {
+    const roomWindow = window.open('', '_blank');
+    if (roomWindow) {
+      roomWindow.document.title = 'Neo Meeting';
+      roomWindow.document.body.innerHTML = '<p style="font-family:system-ui;padding:24px">Abrindo reunião...</p>';
+    }
+    return roomWindow;
+  } catch (e) {
+    return null;
+  }
+}
+
+function closeMeetingWindowPlaceholder(roomWindow) {
+  try {
+    if (roomWindow && !roomWindow.closed) roomWindow.close();
+  } catch (e) { /* ignore */ }
+}
+
+function openMeetingRoom(meeting, roomWindow) {
+  if (!meeting?.room_url) return false;
+  try {
+    if (roomWindow && !roomWindow.closed) {
+      roomWindow.opener = null;
+      roomWindow.location.href = meeting.room_url;
+      roomWindow.focus();
+      return true;
+    }
+    const opened = window.open(meeting.room_url, '_blank', 'noopener,noreferrer');
+    if (opened) return true;
+  } catch (e) { /* ignore */ }
+  if (typeof showToast === 'function') showToast(t('meetings_popup_blocked'), 3500, 'warning');
+  return false;
+}
+
+async function startAndOpen(meeting, roomWindow) {
   try {
     await fetch(`/api/meetings/${meeting.id}/start`, {
       method: 'POST',
@@ -748,32 +797,141 @@ async function startAndEmbed(meeting) {
     });
     _activeMeeting.status = 'active';
   } catch (e) { /* proceed anyway */ }
+  openMeetingRoom(_activeMeeting || meeting, roomWindow);
   renderMeetingsPanel();
 }
 
-function renderActiveMeeting(container) {
+function renderMeetingDetail(container) {
   const m = _activeMeeting;
+  if (!m) return;
+  const statusKey = 'meetings_status_' + m.status;
+  const statusLabel = t(statusKey) || m.status;
+  const objectiveLabel = t('meetings_obj_' + m.objective) || m.objective;
+  const participants = m.participants || [];
+
   container.innerHTML = `
-    <div class="meetings-active">
-      <div class="meetings-active-header">
-        <h3>${_mesc(m.title)}</h3>
-        <span class="badge badge--active">${t('meetings_status_active')}</span>
+    <div class="meetings-detail">
+      <div class="meetings-detail-toolbar">
+        <button class="btn" onclick="closeMeetingView()">← ${t('tab_meetings')}</button>
+        <span class="meetings-detail-hint">${t('meetings_detail_hint')}</span>
       </div>
-      <div class="meetings-active-actions">
-        <a href="${_mesc(m.room_url)}" target="_blank" rel="noopener" class="btn-sm">${t('meetings_open_tab')}</a>
-        <button class="btn-sm btn-danger" onclick="endCurrentMeeting()">⏹ ${t('meetings_end')}</button>
+
+      <section class="meetings-detail-hero meetings-detail-hero--${m.status}">
+        <div>
+          <p class="meetings-detail-eyebrow">${t('meetings_detail_title')}</p>
+          <h3>${_mesc(m.title)}</h3>
+          <p>${_mesc(m.project)} · ${objectiveLabel}</p>
+        </div>
+        <span class="meetings-card-status badge badge--${m.status}">${statusLabel}</span>
+      </section>
+
+      <div class="meetings-detail-grid">
+        ${renderMeetingDetailMetric(t('meetings_created_at'), formatMeetingDate(m.created_at))}
+        ${renderMeetingDetailMetric(t('meetings_started_at'), formatMeetingDate(m.started_at))}
+        ${renderMeetingDetailMetric(t('meetings_finished_at'), formatMeetingDate(m.finished_at))}
+        ${renderMeetingDetailMetric(t('meetings_participants'), String(participants.length || 0))}
       </div>
-      <div class="meetings-iframe-wrapper" id="meetingsIframeWrapper">
-        <iframe
-          id="meetingsJitsiFrame"
-          src="${_mesc(m.room_url)}"
-          allow="camera; microphone; display-capture; autoplay; clipboard-write"
-          allowfullscreen
-          style="width:100%; height:100%; border:none; border-radius:8px;"
-        ></iframe>
-      </div>
+
+      ${renderParticipantsBlock(participants)}
+      ${renderMeetingStatePanel(m)}
     </div>
   `;
+}
+
+function renderMeetingDetailMetric(label, value) {
+  return `
+    <div class="meetings-detail-metric">
+      <span>${label}</span>
+      <strong>${_mesc(value)}</strong>
+    </div>
+  `;
+}
+
+function renderParticipantsBlock(participants) {
+  if (!participants || participants.length === 0) {
+    return `
+      <section class="meetings-detail-section">
+        <h4>${t('meetings_participants')}</h4>
+        <p class="meetings-muted">${t('meetings_no_participants')}</p>
+      </section>
+    `;
+  }
+  return `
+    <section class="meetings-detail-section">
+      <h4>${t('meetings_participants')}</h4>
+      <div class="meetings-detail-participants">
+        ${participants.map(renderParticipantChip).join('')}
+      </div>
+    </section>
+  `;
+}
+
+function renderParticipantChip(participant) {
+  const p = typeof participant === 'string'
+    ? { name: participant, email: '', whatsapp: '', role: 'guest' }
+    : participant;
+  const role = t('meetings_role_' + (p.role || 'guest')) || p.role || 'guest';
+  const contacts = [p.email, p.whatsapp].filter(Boolean).map(_mesc).join(' · ');
+  return `
+    <div class="meetings-detail-participant">
+      <strong>${_mesc(p.name)}</strong>
+      <span>${role}${contacts ? ' · ' + contacts : ''}</span>
+    </div>
+  `;
+}
+
+function renderMeetingStatePanel(m) {
+  if (m.status === 'planned') {
+    return `
+      <section class="meetings-state-panel">
+        <div>
+          <h4>${t('meetings_planned_title')}</h4>
+          <p>${t('meetings_planned_desc')}</p>
+        </div>
+        <button class="neo-btn--primary" onclick="joinMeeting('${m.id}')">▶ ${t('meetings_generate_room')}</button>
+      </section>
+    `;
+  }
+
+  if (m.status === 'active') {
+    return `
+      <section class="meetings-state-panel meetings-state-panel--active">
+        <div>
+          <h4>${t('meetings_external_title')}</h4>
+          <p>${t('meetings_external_desc')}</p>
+        </div>
+        <div class="meetings-active-actions">
+          <a href="${_mesc(m.room_url)}" target="_blank" rel="noopener" class="btn-sm">${t('meetings_open_tab')}</a>
+          <button class="btn-sm btn-danger" onclick="endCurrentMeeting()">⏹ ${t('meetings_end')}</button>
+        </div>
+      </section>
+      <div class="meetings-external-room" id="meetingsExternalRoom">
+        <div class="meetings-external-icon">↗</div>
+        <h4>${t('meetings_external_title')}</h4>
+        <p>${t('meetings_external_desc')}</p>
+        <a href="${_mesc(m.room_url)}" target="_blank" rel="noopener" class="neo-btn--primary">${t('meetings_open_tab')}</a>
+      </div>
+    `;
+  }
+
+  if (m.status === 'finished' || m.status === 'processed') {
+    return `
+      <section class="meetings-state-panel meetings-state-panel--post">
+        <div>
+          <h4>${t('meetings_post_title')}</h4>
+          <p>${t('meetings_post_desc')}</p>
+        </div>
+        <div class="meetings-post-actions">
+          <button class="btn" onclick="generateMeetingSummary()">📝 ${t('meetings_post_summary')}</button>
+          <button class="btn" onclick="saveMeetingToObsidian()" disabled title="Phase 2">📓 ${t('meetings_post_obsidian')}</button>
+          <button class="btn" onclick="createMeetingJiraTask()" disabled title="Phase 2">🎫 ${t('meetings_post_jira')}</button>
+        </div>
+      </section>
+      <div id="meetingsSummaryOutput" class="meetings-summary-output"></div>
+    `;
+  }
+
+  return '';
 }
 
 async function endCurrentMeeting() {
@@ -945,8 +1103,7 @@ function renderPostMeeting(container) {
   `;
 }
 
-
-function openPostMeeting(meetingId) {
+function openMeetingDetails(meetingId) {
   const meeting = _meetingsData.find(m => m.id === meetingId);
   if (meeting) {
     _activeMeeting = meeting;
@@ -954,10 +1111,18 @@ function openPostMeeting(meetingId) {
   }
 }
 
+function openPostMeeting(meetingId) {
+  openMeetingDetails(meetingId);
+}
+
 function generateMeetingSummary() {
   if (!_activeMeeting) return;
+  const participantNames = (_activeMeeting.participants || [])
+    .map(p => typeof p === 'string' ? p : p?.name)
+    .filter(Boolean)
+    .join(', ');
   const prompt = `Reunião "${_activeMeeting.title}" (projeto: ${_activeMeeting.project}, objetivo: ${_activeMeeting.objective}) acaba de terminar. ` +
-    `Participantes: ${_activeMeeting.participants.map(p => typeof p === 'string' ? p : p.name).join(', ') || 'não informados'}. ` +
+    `Participantes: ${participantNames || 'não informados'}. ` +
     `Gere um resumo estruturado com: 1) Resumo objetivo, 2) Decisões tomadas, 3) Pendências e responsáveis, 4) Tarefas candidatas para Jira, 5) Próximos passos.`;
 
   if (typeof switchPanel === 'function') switchPanel('chat');
