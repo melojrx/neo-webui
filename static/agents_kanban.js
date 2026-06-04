@@ -29,20 +29,6 @@
     { key: 'archived', label: 'Arquivado' },
   ];
 
-  // Per-column accent color (kept aligned with the runtime's "intensity"
-  // semantics: cold → hot → done).
-  const STATUS_COLOR = {
-    triage: 'var(--muted)',
-    todo: 'var(--muted)',
-    scheduled: '#5a7bff',
-    ready: '#7e5dff',
-    running: '#2bb673',
-    blocked: '#e16a3a',
-    review: '#d2a740',
-    done: '#3aa172',
-    archived: 'var(--muted)',
-  };
-
   // Local cache so we can re-render without re-fetching on every modal close.
   let _state = {
     boards: [],
@@ -177,7 +163,7 @@
       el.className = 'agents-kanban-column';
       el.dataset.status = col.key;
       el.innerHTML = `
-        <header class="agents-kanban-col-header" style="--col-accent:${STATUS_COLOR[col.key]}">
+        <header class="agents-kanban-col-header">
           <span class="agents-kanban-col-title">${_escapeHtml(col.label)}</span>
           <span class="agents-kanban-col-count">${tasks.length}</span>
         </header>
