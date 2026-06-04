@@ -22,7 +22,7 @@ const APP_TITLEBAR_KEYS = {
   'agents-kanban': 'tab_agents_kanban',
 };
 
-const NEO_SHELL_PANELS = new Set(['dashboard', 'chat', 'projects', 'profiles', 'agents', 'settings', 'skills', 'tasks', 'meetings']);
+const NEO_SHELL_PANELS = new Set(['dashboard', 'chat', 'projects', 'profiles', 'agents', 'settings', 'skills', 'tasks', 'meetings', 'agents-kanban', 'memory', 'workspaces']);
 
 const MAIN_VIEW_CLASS_BY_PANEL = {
   dashboard: 'showing-dashboard',
