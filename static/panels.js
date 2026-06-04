@@ -19,6 +19,7 @@ const APP_TITLEBAR_KEYS = {
   memory: 'tab_memory', workspaces: 'tab_workspaces',
   profiles: 'tab_profiles', todos: 'tab_todos', settings: 'tab_settings',
   projects: 'tab_projects', agents: 'tab_agents', meetings: 'tab_meetings',
+  'agents-kanban': 'tab_agents_kanban',
 };
 
 const NEO_SHELL_PANELS = new Set(['dashboard', 'chat', 'projects', 'profiles', 'agents', 'settings', 'skills', 'tasks', 'meetings']);
@@ -36,6 +37,7 @@ const MAIN_VIEW_CLASS_BY_PANEL = {
   workspaces: 'showing-workspaces',
   profiles: 'showing-profiles',
   meetings: 'showing-meetings',
+  'agents-kanban': 'showing-agents-kanban',
 };
 
 /**
@@ -214,6 +216,7 @@ async function switchPanel(name, opts = {}) {
     if (typeof renderNeoPersonalPanel === 'function') renderNeoPersonalPanel();
   }
   if (nextPanel === 'projects' && typeof loadProjectsCommandCenter === 'function') await loadProjectsCommandCenter();
+  if (nextPanel === 'agents-kanban' && typeof loadAgentsKanbanPanel === 'function') await loadAgentsKanbanPanel();
   if (nextPanel === 'meetings' && typeof loadMeetingsPanel === 'function') await loadMeetingsPanel();
   if (nextPanel === 'agents' && typeof mountDashboardAgents === 'function') mountDashboardAgents();
   if (nextPanel === 'todos') loadTodos();

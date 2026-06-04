@@ -128,6 +128,7 @@
       <div class="neo-dashboard-menu">
         <button class="neo-dashboard-menu-item active" data-neo-menu-item data-panel="dashboard" onclick="switchPanel('dashboard')"><span aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg></span><span data-i18n="tab_dashboard">Dashboard</span></button>
         <button class="neo-dashboard-menu-item" data-neo-menu-item data-panel="chat" onclick="switchPanel('chat')"><span aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span><span data-i18n="tab_conversations">Conversas</span></button>
+        <button class="neo-dashboard-menu-item" data-neo-menu-item data-panel="agents-kanban" onclick="switchPanel('agents-kanban')"><span aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 4h6v8H4zM14 4h6v4h-6zM14 12h6v8h-6zM4 16h6v4H4z" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linejoin="round"/></svg></span><span data-i18n="tab_agents_kanban">Kanban (Agentes)</span></button>
         <button class="neo-dashboard-menu-item" data-neo-menu-item data-panel="projects" onclick="switchPanel('projects')"><span aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 6a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span><span data-i18n="tab_projects">Projetos</span></button>
 
         <button class="neo-dashboard-menu-item" data-neo-menu-item data-panel="profiles" onclick="switchPanel('profiles')"><span aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><span data-i18n="tab_profiles">Pessoal</span></button>
@@ -361,6 +362,86 @@
                 </div>
               </section>
             </aside>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="mainAgentsKanban" class="main-view" hidden>
+      <div class="main-view-header agents-kanban-header">
+        <div>
+          <div class="main-view-title" data-i18n="agents_kanban_title">Kanban (Agentes)</div>
+          <div class="main-view-subtitle" data-i18n="agents_kanban_subtitle">Demandas dos agentes do Hermes runtime — lidas direto do <code>kanban_db</code> do dispatcher</div>
+        </div>
+        <div class="main-view-actions agents-kanban-actions">
+          <select id="agentsKanbanBoardSelect" class="agents-kanban-board-select" aria-label="Board">
+            <option value="">Carregando...</option>
+          </select>
+          <button type="button" class="neo-btn neo-btn-secondary" id="agentsKanbanRefreshBtn" title="Atualizar">
+            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span data-i18n="agents_kanban_refresh">Atualizar</span>
+          </button>
+          <button type="button" class="neo-btn neo-btn-primary" id="agentsKanbanNewBtn">
+            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+            <span data-i18n="agents_kanban_new">Nova demanda</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="agents-kanban-stats" id="agentsKanbanStats" aria-live="polite">
+        <div class="agents-kanban-stat"><span class="stat-label" data-i18n="agents_kanban_total">Total</span><span class="stat-value" id="agentsKanbanStatTotal">—</span></div>
+        <div class="agents-kanban-stat"><span class="stat-label" data-i18n="agents_kanban_running">Rodando</span><span class="stat-value" id="agentsKanbanStatRunning">—</span></div>
+        <div class="agents-kanban-stat"><span class="stat-label" data-i18n="agents_kanban_ready">Prontas</span><span class="stat-value" id="agentsKanbanStatReady">—</span></div>
+        <div class="agents-kanban-stat"><span class="stat-label" data-i18n="agents_kanban_done">Concluídas</span><span class="stat-value" id="agentsKanbanStatDone">—</span></div>
+      </div>
+
+      <div class="agents-kanban-board" id="agentsKanbanBoard" role="list">
+        <div class="agents-kanban-empty" id="agentsKanbanEmpty" hidden data-i18n="agents_kanban_empty">Sem tarefas neste board.</div>
+        <!-- columns injected by agents_kanban.js -->
+      </div>
+
+      <!-- New task modal (agent kanban) -->
+      <div class="agents-kanban-modal-backdrop" id="agentsKanbanModal" hidden>
+        <div class="agents-kanban-modal" role="dialog" aria-modal="true" aria-labelledby="agentsKanbanModalTitle">
+          <header class="agents-kanban-modal-header">
+            <h2 id="agentsKanbanModalTitle" data-i18n="agents_kanban_new_title">Nova demanda de agente</h2>
+            <button type="button" class="agents-kanban-modal-close" data-agents-kanban-close aria-label="Fechar">×</button>
+          </header>
+          <form id="agentsKanbanForm" class="agents-kanban-modal-body">
+            <label>
+              <span data-i18n="agents_kanban_field_title">Título</span>
+              <input type="text" name="title" required maxlength="200" />
+            </label>
+            <label>
+              <span data-i18n="agents_kanban_field_body">Descrição</span>
+              <textarea name="body" rows="4"></textarea>
+            </label>
+            <div class="agents-kanban-modal-row">
+              <label>
+                <span data-i18n="agents_kanban_field_assignee">Assignee</span>
+                <input type="text" name="assignee" placeholder="júnior-melo" />
+              </label>
+              <label>
+                <span data-i18n="agents_kanban_field_priority">Prioridade</span>
+                <input type="number" name="priority" min="0" max="10" value="0" />
+              </label>
+            </div>
+            <footer class="agents-kanban-modal-footer">
+              <button type="button" class="neo-btn neo-btn-secondary" data-agents-kanban-close data-i18n="agents_kanban_cancel">Cancelar</button>
+              <button type="submit" class="neo-btn neo-btn-primary" data-i18n="agents_kanban_create">Criar</button>
+            </footer>
+          </form>
+        </div>
+      </div>
+
+      <!-- Task detail modal -->
+      <div class="agents-kanban-modal-backdrop" id="agentsKanbanDetail" hidden>
+        <div class="agents-kanban-modal" role="dialog" aria-modal="true" aria-labelledby="agentsKanbanDetailTitle">
+          <header class="agents-kanban-modal-header">
+            <h2 id="agentsKanbanDetailTitle">—</h2>
+            <button type="button" class="agents-kanban-modal-close" data-agents-kanban-detail-close aria-label="Fechar">×</button>
+          </header>
+          <div class="agents-kanban-modal-body agents-kanban-detail-body" id="agentsKanbanDetailBody">
+            <!-- task detail injected by agents_kanban.js -->
           </div>
         </div>
       </div>
@@ -1579,6 +1660,7 @@
 <script src="/static/meetings.js?v=__WEBUI_VERSION__"></script>
 <script src="static/kanban.js?v=__WEBUI_VERSION__" defer></script>
 <script src="static/panels.js?v=__WEBUI_VERSION__" defer></script>
+<script src="static/agents_kanban.js?v=__WEBUI_VERSION__" defer></script>
 <nav class="neo-mobile-nav" id="neoMobileNav" aria-label="Mobile navigation">
   <button class="neo-mobile-nav-item active" data-panel="dashboard" onclick="switchPanel('dashboard')" type="button" aria-label="Dashboard">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
@@ -1587,6 +1669,10 @@
   <button class="neo-mobile-nav-item" data-panel="chat" onclick="switchPanel('chat')" type="button" aria-label="Chat">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
     <span>Chat</span>
+  </button>
+  <button class="neo-mobile-nav-item" data-panel="agents-kanban" onclick="switchPanel('agents-kanban')" type="button" aria-label="Kanban (Agentes)">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+    <span>Kanban</span>
   </button>
   <button class="neo-mobile-nav-item" data-panel="projects" onclick="switchPanel('projects')" type="button" aria-label="Projetos">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>

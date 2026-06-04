@@ -496,6 +496,7 @@ def _resolve_effective_session_model_for_display(session) -> str:
 # NEO Sprint 5: local-first Projects Command Center module.
 from api import projects as neo_projects
 from api import jira as neo_jira
+from api import agents_kanban as neo_kanban
 from api import meetings as neo_meetings
 from api.models import (
     Session,
@@ -1254,6 +1255,68 @@ def handle_get(handler, parsed) -> bool:
         except Exception:
             logger.exception("NEO projects snapshot failed; falling back to legacy list")
             return j(handler, {"projects": load_projects()})
+
+    # NEO: Agents Kanban (Hermes runtime) — multi-agent task board,
+    # separate from the user-facing Projects tab.
+    if parsed.path == "/api/agents-kanban/boards":
+        try:
+            return j(handler, neo_kanban.list_boards())
+        except Exception as exc:
+            logger.exception("agents-kanban list_boards failed")
+            return bad(handler, str(exc), 500)
+
+    if parsed.path == "/api/agents-kanban/stats":
+        try:
+            qs = parse_qs(parsed.query)
+            board = qs.get("board", [None])[0]
+            return j(handler, neo_kanban.list_stats(board=board))
+        except Exception as exc:
+            logger.exception("agents-kanban stats failed")
+            return bad(handler, str(exc), 500)
+
+    if parsed.path == "/api/agents-kanban/tasks":
+        try:
+            qs = parse_qs(parsed.query)
+            board = qs.get("board", [None])[0] or "default"
+            status = qs.get("status", [None])[0]
+            limit = int(qs.get("limit", ["200"])[0])
+            return j(handler, neo_kanban.list_tasks(board=board, status=status, limit=limit))
+        except Exception as exc:
+            logger.exception("agents-kanban list_tasks failed")
+            return bad(handler, str(exc), 500)
+
+    if parsed.path.startswith("/api/agents-kanban/tasks/"):
+        task_id = parsed.path[len("/api/agents-kanban/tasks/"):]
+        if not task_id or "/" in task_id:
+            return bad(handler, "Invalid task_id", 404)
+        try:
+            return j(handler, neo_kanban.get_task(task_id))
+        except Exception as exc:
+            logger.exception("agents-kanban get_task failed")
+            return bad(handler, str(exc), 500)
+
+    if parsed.path.startswith("/api/agents-kanban/comments/"):
+        task_id = parsed.path[len("/api/agents-kanban/comments/"):]
+        if not task_id or "/" in task_id:
+            return bad(handler, "Invalid task_id", 404)
+        try:
+            return j(handler, neo_kanban.list_comments(task_id))
+        except Exception as exc:
+            logger.exception("agents-kanban list_comments failed")
+            return bad(handler, str(exc), 500)
+
+    if parsed.path.startswith("/api/agents-kanban/events/"):
+        task_id = parsed.path[len("/api/agents-kanban/events/"):]
+        if not task_id or "/" in task_id:
+            return bad(handler, "Invalid task_id", 404)
+        try:
+            qs = parse_qs(parsed.query)
+            limit = int(qs.get("limit", ["100"])[0])
+            return j(handler, neo_kanban.list_events(task_id, limit=limit))
+        except Exception as exc:
+            logger.exception("agents-kanban list_events failed")
+            return bad(handler, str(exc), 500)
+
 
     if parsed.path.startswith("/api/projects/") and parsed.path.endswith("/summary"):
         project_id = parsed.path[len("/api/projects/"):-len("/summary")]
@@ -2257,6 +2320,41 @@ def handle_post(handler, parsed) -> bool:
         except ValueError as e:
             return bad(handler, str(e))
         return j(handler, {"ok": True, "task": task})
+
+    # NEO: Agents Kanban — create task (POST)
+    if parsed.path == "/api/agents-kanban/tasks":
+        try:
+            require(body, "title")
+        except ValueError as e:
+            return bad(handler, str(e))
+        try:
+            return j(handler, {"ok": True, "task": neo_kanban.create_task(body)})
+        except Exception as exc:
+            logger.exception("agents-kanban create_task failed")
+            return bad(handler, str(exc), 500)
+
+    # NEO: Agents Kanban — add comment (POST)
+    if parsed.path.startswith("/api/agents-kanban/comments/"):
+        task_id = parsed.path[len("/api/agents-kanban/comments/"):]
+        if not task_id or "/" in task_id:
+            return bad(handler, "Invalid task_id", 404)
+        try:
+            return j(handler, neo_kanban.add_comment(task_id, body))
+        except Exception as exc:
+            logger.exception("agents-kanban add_comment failed")
+            return bad(handler, str(exc), 500)
+
+    # NEO: Agents Kanban — delete task (POST) — matches the project
+    # delete pattern (no DELETE method handler in this server).
+    if parsed.path.startswith("/api/agents-kanban/tasks/") and parsed.path.endswith("/delete"):
+        task_id = parsed.path[len("/api/agents-kanban/tasks/"):-len("/delete")]
+        if not task_id or "/" in task_id:
+            return bad(handler, "Invalid task_id", 404)
+        try:
+            return j(handler, neo_kanban.delete_task(task_id))
+        except Exception as exc:
+            logger.exception("agents-kanban delete_task failed")
+            return bad(handler, str(exc), 500)
 
     if parsed.path.startswith("/api/project-tasks/") and parsed.path.endswith("/archive"):
         task_id = parsed.path[len("/api/project-tasks/"):-len("/archive")]
@@ -4949,5 +5047,21 @@ def handle_patch(handler, parsed) -> bool:
         except ValueError as e:
             return bad(handler, str(e))
         return j(handler, {"ok": True, "task": task})
+
+    # NEO: Agents Kanban — status transition (PATCH) — distinct from
+    # update_task in projects; here we route to the runtime's set_task_status
+    # which honors the dispatcher's lock on running tasks.
+    if parsed.path.startswith("/api/agents-kanban/tasks/"):
+        task_id = parsed.path[len("/api/agents-kanban/tasks/"):]
+        if not task_id or "/" in task_id:
+            return bad(handler, "Invalid task_id", 404)
+        new_status = (body.get("status") or "").strip()
+        if not new_status:
+            return bad(handler, "status is required")
+        try:
+            return j(handler, neo_kanban.set_task_status(task_id, new_status))
+        except Exception as exc:
+            logger.exception("agents-kanban set_task_status failed")
+            return bad(handler, str(exc), 500)
 
     return False  # 404
