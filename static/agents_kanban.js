@@ -419,7 +419,17 @@
 
   async function _deleteCurrentTask() {
     if (!_state.currentTaskId) return;
-    if (!confirm('Excluir esta task? Esta ação não pode ser desfeita.')) return;
+    if (typeof showConfirmDialog === 'function') {
+      const ok = await showConfirmDialog({
+        message: 'Excluir esta task? Esta ação não pode ser desfeita.',
+        confirmLabel: 'Excluir',
+        danger: true,
+        focusCancel: true,
+      });
+      if (!ok) return;
+    } else {
+      return;
+    }
     try {
       const r = await _fetchJson(
         `/api/agents-kanban/tasks/${encodeURIComponent(_state.currentTaskId)}/delete`,

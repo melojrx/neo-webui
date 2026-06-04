@@ -67,6 +67,7 @@ def test_neo_sidebar_matches_required_navigation_order_and_targets():
         # way to browse old chats was through the legacy hermes nav, which
         # the Neo fork hides.
         ("chat", "chat", "tab_conversations"),
+        ("agents-kanban", "agents-kanban", "tab_agents_kanban"),
         ("projects", "projects", "tab_projects"),
         ("profiles", "profiles", "tab_profiles"),
         ("meetings", "meetings", "tab_meetings"),
