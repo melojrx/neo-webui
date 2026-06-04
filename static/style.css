@@ -5485,9 +5485,9 @@ body.projects-modal-open{ overflow:hidden; }
 .agents-kanban-card-priority{
   font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;text-transform:uppercase;
 }
-.agents-kanban-card-priority.high{background:rgba(225,106,58,.18);color:#e16a3a;}
-.agents-kanban-card-priority.med{background:rgba(210,167,64,.18);color:#d2a740;}
-.agents-kanban-card-priority.low{background:rgba(122,122,142,.18);color:var(--muted);}
+.agents-kanban-card-priority.high{background:rgba(239,83,80,0.10);color:var(--error);}
+.agents-kanban-card-priority.med{background:rgba(255,167,38,0.10);color:var(--warning);}
+.agents-kanban-card-priority.low{background:var(--hover-bg);color:var(--muted);}
 .agents-kanban-card-id{font-size:10px;color:var(--muted);font-family:ui-monospace,SFMono-Regular,monospace;}
 .agents-kanban-card-title{font-size:13px;font-weight:500;color:var(--text);line-height:1.35;}
 .agents-kanban-card-meta{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);}
