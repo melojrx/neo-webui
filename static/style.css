@@ -165,7 +165,7 @@
      fundo navy profundo, accent ciano, glow sutil. Light mode usa um azul
      acinzentado para legibilidade fora do dark. */
   :root[data-skin="neo"]{
-    --bg:#F2F6FB;--sidebar:#E8EEF7;--surface:#FFFFFF;
+    --bg:#F2F6FB;--sidebar:#E8EEF7;--surface:#FFFFFF;--bg-elev:#FAFCFE;
     --border:#D6E1EE;--border2:#B9C9DD;
     --text:#0B1726;--muted:#54637A;--strong:#06101C;--em:#3A4A60;
     --accent:#0288A8;--accent-hover:#016B85;--accent-text:#016B85;
@@ -177,7 +177,7 @@
     --blue:#0288A8;--gold:#016B85;
   }
   :root.dark[data-skin="neo"]{
-    --bg:#070B17;--sidebar:#0E1426;--surface:#121A2E;
+    --bg:#070B17;--sidebar:#0E1426;--surface:#162038;--bg-elev:#101828;
     --border:#1F2A44;--border2:#2C3A5A;
     --text:#E6F4FF;--muted:#8AA0BD;--strong:#FFFFFF;--em:#B7CBE6;
     --accent:#00E5FF;--accent-hover:#00B8D4;--accent-text:#5EE9FF;
@@ -5416,11 +5416,13 @@ body.projects-modal-open{ overflow:hidden; }
   }
 }
 
-/* ── NEO: Agents Kanban (Hermes runtime) ── */
+/* ── NEO: Agents Kanban (Hermes runtime)
+     Herda estilos visuais do Projects Kanban via variáveis do skin neo. ── */
 #mainAgentsKanban{padding:0;}
 .agents-kanban-header{
   display:flex;align-items:flex-start;gap:16px;
-  padding:18px 24px;border-bottom:1px solid var(--border);
+  padding:18px 24px;border-bottom:1px solid var(--border2);
+  color:var(--text);
 }
 .agents-kanban-actions{display:flex;align-items:center;gap:8px;flex-shrink:0;}
 .agents-kanban-board-select{
@@ -5429,11 +5431,12 @@ body.projects-modal-open{ overflow:hidden; }
 }
 .agents-kanban-stats{
   display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;
-  padding:12px 24px;border-bottom:1px solid var(--border);background:var(--bg-elev);
+  padding:12px 24px;border-bottom:1px solid var(--border2);background:var(--bg-elev);
 }
 .agents-kanban-stat{
   display:flex;flex-direction:column;gap:2px;padding:6px 10px;
-  border-radius:8px;background:var(--bg);border:1px solid var(--border);
+  border-radius:8px;background:var(--surface);border:1px solid var(--border);
+  color:var(--text);
 }
 .agents-kanban-stat .stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
 .agents-kanban-stat .stat-value{font-size:20px;font-weight:600;color:var(--text);}
@@ -5442,8 +5445,10 @@ body.projects-modal-open{ overflow:hidden; }
   scroll-snap-type:x mandatory;
 }
 .agents-kanban-column{
-  flex:0 0 280px;display:flex;flex-direction:column;background:var(--bg-elev);
+  flex:0 0 280px;display:flex;flex-direction:column;
+  background:var(--surface);
   border:1px solid var(--border);border-radius:12px;min-height:200px;scroll-snap-align:start;
+  border-top:3px solid var(--col-accent,var(--muted));
 }
 .agents-kanban-col-header{
   display:flex;align-items:center;justify-content:space-between;gap:8px;
@@ -5452,19 +5457,20 @@ body.projects-modal-open{ overflow:hidden; }
 }
 .agents-kanban-col-title{font-size:13px;font-weight:600;color:var(--text);text-transform:uppercase;letter-spacing:.04em;}
 .agents-kanban-col-count{
-  background:var(--bg);color:var(--muted);font-size:11px;font-weight:600;
-  border:1px solid var(--border);padding:1px 8px;border-radius:999px;min-width:24px;text-align:center;
+  background:var(--accent-bg);color:var(--accent-text);font-size:11px;font-weight:600;
+  padding:1px 8px;border-radius:999px;min-width:24px;text-align:center;
 }
 .agents-kanban-col-body{flex:1;padding:8px;display:flex;flex-direction:column;gap:8px;overflow-y:auto;}
 .agents-kanban-col-empty{font-size:12px;color:var(--muted);text-align:center;padding:14px 6px;font-style:italic;}
 .agents-kanban-card{
   background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 12px;
-  cursor:grab;transition:transform .12s,border-color .12s,background .12s;
+  cursor:grab;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;
   display:flex;flex-direction:column;gap:6px;
+  color:var(--text);
 }
-.agents-kanban-card:hover{border-color:var(--accent);transform:translateY(-1px);}
+.agents-kanban-card:hover{border-color:var(--accent);box-shadow:0 0 0 2px var(--focus-glow);}
 .agents-kanban-card.dragging{opacity:.4;cursor:grabbing;}
-.agents-kanban-col-body.drag-over{background:rgba(126,93,255,.08);outline:1px dashed var(--accent);outline-offset:-4px;border-radius:8px;}
+.agents-kanban-col-body.drag-over{background:var(--accent-bg);box-shadow:inset 0 0 0 1px var(--accent);}
 .agents-kanban-card-head{display:flex;justify-content:space-between;align-items:center;gap:6px;}
 .agents-kanban-card-priority{
   font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;text-transform:uppercase;
@@ -5485,8 +5491,9 @@ body.projects-modal-open{ overflow:hidden; }
 }
 .agents-kanban-modal-backdrop[hidden]{display:none;}
 .agents-kanban-modal{
-  background:var(--bg-elev);border:1px solid var(--border);border-radius:14px;width:min(640px,100%);max-height:90vh;overflow:auto;
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;width:min(640px,100%);max-height:90vh;overflow:auto;
   box-shadow:0 30px 80px rgba(0,0,0,.45);
+  color:var(--text);
 }
 .agents-kanban-modal-header{
   display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border);
